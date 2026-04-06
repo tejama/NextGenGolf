@@ -21,6 +21,8 @@ def test_pipeline_outputs_top10(tmp_path):
     assert len(res["ev"]) == 10
     assert len(res["diversified"]) == 10
     assert all(len(x.players) == 13 for x in res["ev"])
+    assert (tmp_path / "top10_lineups.csv").exists()
+    assert (tmp_path / "all_picks_with_justification.csv").exists()
 
 
 def test_pipeline_deterministic(tmp_path):

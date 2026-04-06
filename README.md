@@ -28,6 +28,10 @@ masters-optimize run --config config/real_data_example.json --output output
 
 This will print the top 10 EV and top 10 diversified lineups using the real golfer names from that CSV.
 
+The run also writes CSV exports:
+- `top10_lineups.csv` (one row per lineup, all 13 picks + plain-English lineup justification)
+- `all_picks_with_justification.csv` (one row per pick with plain-English pick rationale)
+
 ## If you want a faster smoke run first
 
 ```bash
