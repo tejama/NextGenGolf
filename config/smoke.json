@@ -1,0 +1,8 @@
+{
+  "data": {"source": "synthetic", "seed": 12, "players_per_bucket": 3},
+  "feature_weights": {"recent_form": 1.0, "baseline_skill": 1.0, "augusta_fit": 1.0, "volatility": 1.0},
+  "model": {"recent_weight": 0.45, "long_term_weight": 0.55},
+  "simulation": {"n_sims": 1000, "seed": 222, "missed_cut_penalty": 155.0},
+  "optimization": {"lineup_cap": 400},
+  "backtest": {"target_cut_rate": 0.28, "snapshots": []}
+}
