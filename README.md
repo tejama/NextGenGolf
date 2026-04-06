@@ -15,25 +15,53 @@ Production-style Python application for optimizing **Masters pool** entries with
 - Portfolio generation with overlap control
 - Automated tests for stability/drift/consistency/benchmarking
 
-## Quickstart
+## Quickstart (macOS/Linux)
+
+> If `python` is not installed in your shell, use `python3` (shown below).
 
 ```bash
-python -m venv .venv
+# from repo root
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .[dev]
+python -m pip install --upgrade pip
+python -m pip install -e '.[dev]'
 
-# Generate lineups from sample data
+# Generate lineups (Top 10 EV + Top 10 diversified)
 masters-optimize run --config config/default.json --output output
 
-# Backtest on historical sample snapshots
+# Backtest
 masters-optimize backtest --config config/default.json
 
 # Regression checks
 masters-optimize regression --config config/default.json
 
-# Run tests
+# Tests
 pytest -q
 ```
+
+## Fast smoke run (much quicker)
+
+```bash
+masters-optimize run --config config/smoke.json --output output/smoke --mode all
+```
+
+## Why your terminal error happened
+
+In `zsh`, this command fails unquoted:
+
+```bash
+pip install -e .[dev]
+```
+
+because `.[dev]` is treated as a pattern. Use either:
+
+```bash
+pip install -e '.[dev]'
+# or
+pip install -e .\[dev\]
+```
+
+Also, if `python` is missing, create the venv with `python3 -m venv .venv`.
 
 ## Data expectations
 
@@ -52,8 +80,6 @@ Expected player dataset fields include:
 ## CLI output
 
 Running `masters-optimize run` emits:
-- player model table
 - top 10 EV lineups
 - top 10 diversified lineups
-- JSON artifacts in output directory
-
+- JSON artifacts in output directory (`player_projections.json`, `top10_ev.json`, `top10_diversified.json`, `per_bucket_rankings.json`)
