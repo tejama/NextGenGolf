@@ -83,3 +83,7 @@ Running `masters-optimize run` emits:
 - top 10 EV lineups
 - top 10 diversified lineups
 - JSON artifacts in output directory (`player_projections.json`, `top10_ev.json`, `top10_diversified.json`, `per_bucket_rankings.json`)
+
+The lineup output prints golfer **names and IDs** (e.g., `Scottie Scheffler (B01_P1)`), not just bucket IDs.
+
+Regression checks print progress every 500 stability tests by default.

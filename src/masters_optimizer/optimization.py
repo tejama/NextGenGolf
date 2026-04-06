@@ -15,9 +15,16 @@ def optimize_lineups(
     top_n: int = 10,
     lineup_cap: int = 5000,
     diversified: bool = False,
+    progress_every: int = 0,
+    progress_label: str = "optimization",
 ) -> List[LineupResult]:
-    candidates = _generate_candidates(buckets, lineup_cap=lineup_cap)
-    scored = [_score_lineup(lineup, artifacts) for lineup in candidates]
+    candidates = list(_generate_candidates(buckets, lineup_cap=lineup_cap))
+    scored = []
+    for idx, lineup in enumerate(candidates, start=1):
+        scored.append(_score_lineup(lineup, artifacts))
+        if progress_every > 0 and idx % progress_every == 0:
+            print(f"[{progress_label}] scored {idx}/{len(candidates)} lineups")
+
     scored.sort(key=lambda x: x.expected_score)
     ev_top = scored[: max(top_n * 8, 50)]
 
@@ -82,6 +89,7 @@ def _score_lineup(lineup: Sequence[str], artifacts: PipelineArtifacts) -> Lineup
 
     return LineupResult(
         players=list(lineup),
+        player_names=[artifacts.projections[pid].name for pid in lineup],
         expected_score=exp,
         floor=floor,
         ceiling=ceiling,

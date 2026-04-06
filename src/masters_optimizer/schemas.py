@@ -61,6 +61,7 @@ class PlayerProjection:
 @dataclass
 class LineupResult:
     players: List[str]
+    player_names: List[str]
     expected_score: float
     floor: float
     ceiling: float

@@ -51,7 +51,8 @@ def _print_lineups(lineups) -> None:
             f"{i:02d}. exp={l.expected_score:.2f} floor={l.floor:.2f} "
             f"ceiling={l.ceiling:.2f} vol={l.volatility:.2f} overlap={l.overlap_pct:.1f}%"
         )
-        print("    players:", ", ".join(l.players))
+        pretty_players = ", ".join(f"{name} ({pid})" for name, pid in zip(l.player_names, l.players))
+        print("    players:", pretty_players)
         print(
             "    profile:",
             f"best8={l.best8_expected:.2f} cut={l.cut_survival_avg:.2f} win_eq={l.win_equity_sum:.3f}",

@@ -38,8 +38,25 @@ def run_pipeline(
 
     buckets = _bucket_map(players, locked_players=locked_players)
     lineup_cap = int(config.get("optimization", {}).get("lineup_cap", 3000))
-    ev = optimize_lineups(buckets, artifacts, top_n=10, lineup_cap=lineup_cap, diversified=False)
-    div = optimize_lineups(buckets, artifacts, top_n=10, lineup_cap=lineup_cap, diversified=True)
+    progress_every = int(config.get("optimization", {}).get("progress_every", 0))
+    ev = optimize_lineups(
+        buckets,
+        artifacts,
+        top_n=10,
+        lineup_cap=lineup_cap,
+        diversified=False,
+        progress_every=progress_every,
+        progress_label="ev",
+    )
+    div = optimize_lineups(
+        buckets,
+        artifacts,
+        top_n=10,
+        lineup_cap=lineup_cap,
+        diversified=True,
+        progress_every=progress_every,
+        progress_label="diversified",
+    )
 
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
