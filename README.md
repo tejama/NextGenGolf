@@ -16,45 +16,37 @@ python -m pip install --upgrade pip
 python -m pip install -e '.[dev]'
 ```
 
-## IMPORTANT: Why you see `Player 1-2` instead of real golfers
+## 2026 Masters pool CSV is now included
 
-`config/default.json` uses the **synthetic** connector, so you will get placeholder names by design.
+I added `data/masters_players_real.csv` from your screenshots (all 13 buckets, including the large Bonus bucket).
 
-If you want real names like **Scottie Scheffler**, **Justin Thomas**, etc., do this exactly:
-
-### 1) Create your real-player CSV from the template
-
-```bash
-cp data/masters_players_template.csv data/masters_players_real.csv
-```
-
-Then edit `data/masters_players_real.csv` and replace rows with your real pool players.
-
-- Keep the same column headers.
-- You must have all 13 buckets represented (`bucket` = 1..13).
-- Put real player names in the `name` column.
-
-### 2) Run with the real-data config
+### Run it directly
 
 ```bash
 masters-optimize run --config config/real_data_example.json --output output
 ```
 
-That config points to `data/masters_players_real.csv`, so output lineups will print real names from your file.
+This will print the top 10 EV and top 10 diversified lineups using the real golfer names from that CSV.
 
-## Commands
-
-### Fast smoke run (synthetic placeholders)
+## If you want a faster smoke run first
 
 ```bash
-masters-optimize run --config config/smoke.json --output output/smoke --mode all
+# uses the same real-name CSV but smaller sim settings
+masters-optimize run --config config/real_data_smoke.json --output output/real_smoke --mode ev
 ```
 
-### Full run (synthetic placeholders)
+## Why you previously saw `Player 1-2`
 
-```bash
-masters-optimize run --config config/default.json --output output --mode all
-```
+`config/default.json` uses synthetic data on purpose, so names are placeholders. For real names always use `config/real_data_example.json`.
+
+## Files added for real-data workflow
+
+- `data/masters_players_real.csv` → built from your screenshots.
+- `config/real_data_example.json` → full 10,000 simulation run against that CSV.
+- `config/real_data_smoke.json` → quick smoke config for fast local validation.
+- `data/masters_players_template.csv` → template if you want to edit/refresh buckets later.
+
+## Other commands
 
 ### Backtest
 
