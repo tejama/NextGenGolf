@@ -29,6 +29,10 @@ def main() -> None:
     args = parser.parse_args()
     cfg = load_config(args.config)
 
+    if cfg.get("data", {}).get("source") == "synthetic":
+        print("[notice] You are using synthetic data. Names will appear as placeholders like Player 1-2.")
+        print("[notice] For real golfer names, use --config config/real_data_example.json with your CSV.")
+
     if args.command == "run":
         locks = [x.strip() for x in args.lock.split(",") if x.strip()]
         excludes = [x.strip() for x in args.exclude.split(",") if x.strip()]

@@ -7,83 +7,68 @@ Production-style Python application for optimizing **Masters pool** entries with
 - Missed cuts are heavily penalized
 - Output top 10 lineups in EV and diversified modes
 
-## Highlights
-
-- Modular architecture: data, features, model, simulation, optimization, backtest, regression checks
-- Config-driven weights and simulation settings
-- Monte Carlo tournament simulation (10,000+ runs)
-- Portfolio generation with overlap control
-- Automated tests for stability/drift/consistency/benchmarking
-
 ## Quickstart (macOS/Linux)
 
-> If `python` is not installed in your shell, use `python3` (shown below).
-
 ```bash
-# from repo root
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[dev]'
-
-# Generate lineups (Top 10 EV + Top 10 diversified)
-masters-optimize run --config config/default.json --output output
-
-# Backtest
-masters-optimize backtest --config config/default.json
-
-# Regression checks
-masters-optimize regression --config config/default.json
-
-# Tests
-pytest -q
 ```
 
-## Fast smoke run (much quicker)
+## IMPORTANT: Why you see `Player 1-2` instead of real golfers
+
+`config/default.json` uses the **synthetic** connector, so you will get placeholder names by design.
+
+If you want real names like **Scottie Scheffler**, **Justin Thomas**, etc., do this exactly:
+
+### 1) Create your real-player CSV from the template
+
+```bash
+cp data/masters_players_template.csv data/masters_players_real.csv
+```
+
+Then edit `data/masters_players_real.csv` and replace rows with your real pool players.
+
+- Keep the same column headers.
+- You must have all 13 buckets represented (`bucket` = 1..13).
+- Put real player names in the `name` column.
+
+### 2) Run with the real-data config
+
+```bash
+masters-optimize run --config config/real_data_example.json --output output
+```
+
+That config points to `data/masters_players_real.csv`, so output lineups will print real names from your file.
+
+## Commands
+
+### Fast smoke run (synthetic placeholders)
 
 ```bash
 masters-optimize run --config config/smoke.json --output output/smoke --mode all
 ```
 
-## Why your terminal error happened
-
-In `zsh`, this command fails unquoted:
+### Full run (synthetic placeholders)
 
 ```bash
-pip install -e .[dev]
+masters-optimize run --config config/default.json --output output --mode all
 ```
 
-because `.[dev]` is treated as a pattern. Use either:
+### Backtest
 
 ```bash
-pip install -e '.[dev]'
-# or
-pip install -e .\[dev\]
+masters-optimize backtest --config config/default.json
 ```
 
-Also, if `python` is missing, create the venv with `python3 -m venv .venv`.
+### Regression checks (prints progress every 500 by default)
 
-## Data expectations
+```bash
+masters-optimize regression --config config/default.json
+```
 
-The system supports pluggable connectors. Included connectors:
-- `CSVConnector` for curated local files
-- `SyntheticConnector` for deterministic synthetic generation (for CI/tests)
+## Notes
 
-Expected player dataset fields include:
-- identity: `player_id`, `name`, `bucket`
-- strokes gained: `sg_off_tee`, `sg_approach`, `sg_arg`, `sg_putting`
-- skill/consistency: `driving_distance`, `driving_accuracy`, `gir`, `scrambling`, `par5_scoring`, `bogey_avoidance`, `double_bogey_rate`
-- priors: `cut_rate`, `masters_history`, `augusta_correlated`, `majors_perf`, `field_adjusted_finish`
-- market odds: `odds_win`, `odds_top5`, `odds_top10`
-- rolling form: `recent_finishes` (semicolon-delimited finishes, newest first)
-
-## CLI output
-
-Running `masters-optimize run` emits:
-- top 10 EV lineups
-- top 10 diversified lineups
-- JSON artifacts in output directory (`player_projections.json`, `top10_ev.json`, `top10_diversified.json`, `per_bucket_rankings.json`)
-
-The lineup output prints golfer **names and IDs** (e.g., `Scottie Scheffler (B01_P1)`), not just bucket IDs.
-
-Regression checks print progress every 500 stability tests by default.
+- In `zsh`, quote extras install: `python -m pip install -e '.[dev]'`.
+- CLI prints names and IDs together (example: `Scottie Scheffler (B01_P1)`).
