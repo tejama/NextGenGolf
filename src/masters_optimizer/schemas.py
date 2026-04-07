@@ -69,6 +69,16 @@ class LineupResult:
     best8_expected: float
     cut_survival_avg: float
     win_equity_sum: float
+    top10_equity_sum: float = 0.0
+    p75_score: float = 0.0
+    p90_score: float = 0.0
+    p95_score: float = 0.0
+    top_end_hit_rate: float = 0.0
+    top_end_hits: int = 0
+    objective_legacy: float = 0.0
+    objective_contest: float = 0.0
+    objective_mode: str = ""
+    simulation_scores: List[float] | None = None
     overlap_pct: float = 0.0
     rationale: str = ""
 
