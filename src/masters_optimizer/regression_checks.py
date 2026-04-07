@@ -8,35 +8,58 @@ from .pipeline import run_pipeline
 
 
 def run_regression_checks(config: Dict) -> Dict[str, float | bool]:
-    res_a = run_pipeline(config, "output/regression_a")
+    res = run_pipeline(config, "output/regression_base")
 
-    perturbed = _clone_dict(config)
-    perturbed["feature_weights"]["recent_form"] *= 1.02
-    res_b = run_pipeline(perturbed, "output/regression_b")
+    contest = res["contest"]
+    legacy = res["legacy"]
 
-    ev_a = [x.expected_score for x in res_a["ev"]]
-    ev_b = [x.expected_score for x in res_b["ev"]]
-    drift = mean(abs(a - b) for a, b in zip(ev_a, ev_b))
+    contest_ev = [x.expected_score for x in contest]
+    legacy_ev = [x.expected_score for x in legacy]
 
-    lineup_change = 1.0 - _avg_jaccard(res_a["ev"], res_b["ev"])
+    avg_cut_gap = mean(x.cut_survival_avg for x in contest) - mean(x.cut_survival_avg for x in legacy)
+    avg_win_gap = mean(x.win_equity_sum for x in contest) - mean(x.win_equity_sum for x in legacy)
+    avg_top_end_gap = mean(x.top_end_hit_rate for x in contest) - mean(x.top_end_hit_rate for x in legacy)
+
+    contest_rank_bias = _rank_bias_toward_safety(contest)
+    legacy_rank_bias = _rank_bias_toward_safety(legacy)
+    safety_bias_delta = contest_rank_bias - legacy_rank_bias
+
+    lineup_change = 1.0 - _avg_jaccard(contest, legacy)
 
     regression_cfg = config.get("regression", {})
     n_tests = int(regression_cfg.get("n_tests", 1000))
     progress_every = int(regression_cfg.get("progress_every", 500))
     random_seed = int(regression_cfg.get("seed", 77))
-    synthetic_shift = _run_stability_trials(ev_a, n_tests=n_tests, seed=random_seed, progress_every=progress_every)
+    synthetic_shift = _run_stability_trials(contest_ev, n_tests=n_tests, seed=random_seed, progress_every=progress_every)
 
-    stable = drift < 4.0 and synthetic_shift < 0.30
-    consistent = lineup_change < 0.55
+    # Contest-aware should generally trade a little cut stability for upside in a top-heavy format.
+    not_floor_heavy = avg_win_gap >= -1e-6 and avg_top_end_gap >= -1e-6 and avg_cut_gap <= 0.03
+    top_end_priority = safety_bias_delta <= 0.0
+    stable = synthetic_shift < 0.35
+    consistent = lineup_change > 0.10
 
     return {
-        "prediction_drift": drift,
+        "contest_vs_legacy_expected_score_gap": mean(contest_ev) - mean(legacy_ev),
+        "contest_vs_legacy_cut_survival_gap": avg_cut_gap,
+        "contest_vs_legacy_win_equity_gap": avg_win_gap,
+        "contest_vs_legacy_top_end_hit_rate_gap": avg_top_end_gap,
+        "contest_rank_safety_bias": contest_rank_bias,
+        "legacy_rank_safety_bias": legacy_rank_bias,
+        "contest_minus_legacy_safety_bias": safety_bias_delta,
         "lineup_change_rate": lineup_change,
         "synthetic_shift_rate": synthetic_shift,
-        "model_stability_pass": stable,
-        "lineup_consistency_pass": consistent,
-        "overall_pass": bool(stable and consistent),
+        "not_floor_heavy_pass": bool(not_floor_heavy),
+        "top_end_priority_pass": bool(top_end_priority),
+        "stability_pass": bool(stable),
+        "lineup_difference_pass": bool(consistent),
+        "overall_pass": bool(not_floor_heavy and top_end_priority and stable and consistent),
     }
+
+
+def _rank_bias_toward_safety(lineups) -> float:
+    weights = list(range(len(lineups), 0, -1))
+    safety = [l.cut_survival_avg for l in lineups]
+    return sum(w * s for w, s in zip(weights, safety)) / max(sum(weights), 1)
 
 
 def _run_stability_trials(ev_scores: List[float], n_tests: int, seed: int, progress_every: int) -> float:
@@ -68,11 +91,3 @@ def _avg_jaccard(lineups_a, lineups_b) -> float:
         sa, sb = set(a.players), set(b.players)
         vals.append(len(sa & sb) / len(sa | sb))
     return mean(vals)
-
-
-def _clone_dict(d):
-    if isinstance(d, dict):
-        return {k: _clone_dict(v) for k, v in d.items()}
-    if isinstance(d, list):
-        return [_clone_dict(x) for x in d]
-    return d

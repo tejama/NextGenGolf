@@ -9,8 +9,14 @@ import json
 from .data_layer import CSVConnector, DataConnector, SyntheticConnector
 from .feature_layer import build_features
 from .model_layer import project_players
-from .optimization import optimize_lineups
-from .reporting import per_bucket_rankings
+from .optimization import (
+    CONTEST_OBJECTIVE,
+    LEGACY_OBJECTIVE,
+    compare_objective_rankings,
+    optimize_lineups,
+    score_all_lineups,
+)
+from .reporting import per_bucket_rankings, player_diagnostics
 from .schemas import LineupResult, PlayerRecord, PlayerProjection
 from .simulation import simulate_tournament
 
@@ -40,23 +46,46 @@ def run_pipeline(
     buckets = _bucket_map(players, locked_players=locked_players)
     lineup_cap = int(config.get("optimization", {}).get("lineup_cap", 3000))
     progress_every = int(config.get("optimization", {}).get("progress_every", 0))
-    ev = optimize_lineups(
+    contest_top_fraction = float(config.get("optimization", {}).get("contest_top_fraction", 0.02))
+
+    scored = score_all_lineups(
+        buckets,
+        artifacts,
+        lineup_cap=lineup_cap,
+        progress_every=progress_every,
+        progress_label="all-objectives",
+        contest_top_fraction=contest_top_fraction,
+    )
+
+    contest = optimize_lineups(
         buckets,
         artifacts,
         top_n=10,
         lineup_cap=lineup_cap,
         diversified=False,
-        progress_every=progress_every,
-        progress_label="ev",
+        progress_every=0,
+        objective_mode=CONTEST_OBJECTIVE,
+        contest_top_fraction=contest_top_fraction,
     )
-    div = optimize_lineups(
+    contest_div = optimize_lineups(
         buckets,
         artifacts,
         top_n=10,
         lineup_cap=lineup_cap,
         diversified=True,
-        progress_every=progress_every,
-        progress_label="diversified",
+        progress_every=0,
+        objective_mode=CONTEST_OBJECTIVE,
+        contest_top_fraction=contest_top_fraction,
+    )
+    legacy = optimize_lineups(
+        buckets,
+        artifacts,
+        top_n=10,
+        lineup_cap=lineup_cap,
+        diversified=False,
+        progress_every=0,
+        objective_mode=LEGACY_OBJECTIVE,
+        contest_top_fraction=contest_top_fraction,
     )
 
     out_path = Path(output_dir)
@@ -64,35 +93,59 @@ def run_pipeline(
 
     with (out_path / "player_projections.json").open("w", encoding="utf-8") as f:
         json.dump({k: asdict(v) for k, v in projections.items()}, f, indent=2)
-    with (out_path / "top10_ev.json").open("w", encoding="utf-8") as f:
-        json.dump([asdict(x) for x in ev], f, indent=2)
+    with (out_path / "top10_contest_aware.json").open("w", encoding="utf-8") as f:
+        json.dump([_serialize_lineup(x) for x in contest], f, indent=2)
+    with (out_path / "top10_legacy_floor.json").open("w", encoding="utf-8") as f:
+        json.dump([_serialize_lineup(x) for x in legacy], f, indent=2)
     with (out_path / "top10_diversified.json").open("w", encoding="utf-8") as f:
-        json.dump([asdict(x) for x in div], f, indent=2)
+        json.dump([_serialize_lineup(x) for x in contest_div], f, indent=2)
     with (out_path / "per_bucket_rankings.json").open("w", encoding="utf-8") as f:
         json.dump(per_bucket_rankings(projections), f, indent=2)
+    with (out_path / "player_diagnostics.json").open("w", encoding="utf-8") as f:
+        json.dump(player_diagnostics(features, projections), f, indent=2)
+    with (out_path / "objective_comparison.json").open("w", encoding="utf-8") as f:
+        json.dump(compare_objective_rankings(scored, top_n=10), f, indent=2)
 
-    _write_lineup_csvs(out_path, ev, div, projections)
+    _write_lineup_csvs(out_path, contest, contest_div, legacy, projections)
 
-    return {"ev": ev, "diversified": div}
+    return {
+        "ev": contest,
+        "diversified": contest_div,
+        "contest": contest,
+        "legacy": legacy,
+    }
+
+
+def _serialize_lineup(lineup: LineupResult) -> dict:
+    payload = asdict(lineup)
+    payload.pop("simulation_scores", None)
+    return payload
 
 
 def _write_lineup_csvs(
     out_path: Path,
-    ev_lineups: List[LineupResult],
+    contest_lineups: List[LineupResult],
     diversified_lineups: List[LineupResult],
+    legacy_lineups: List[LineupResult],
     projections: Dict[str, PlayerProjection],
 ) -> None:
-    # Wide CSV: one row per lineup with all 13 picks and a plain-English rationale.
     wide_cols = [
         "mode",
         "rank",
         "expected_score",
         "floor",
         "ceiling",
+        "p75_score",
+        "p90_score",
+        "p95_score",
+        "top_end_hit_rate",
         "volatility",
         "best8_expected",
         "cut_survival_avg",
         "win_equity_sum",
+        "top10_equity_sum",
+        "objective_legacy",
+        "objective_contest",
         "lineup_justification",
     ]
     for i in range(1, 14):
@@ -101,7 +154,11 @@ def _write_lineup_csvs(
     with (out_path / "top10_lineups.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=wide_cols)
         writer.writeheader()
-        for mode, lineups in [("ev", ev_lineups), ("diversified", diversified_lineups)]:
+        for mode, lineups in [
+            ("contest", contest_lineups),
+            ("contest_diversified", diversified_lineups),
+            ("legacy_floor", legacy_lineups),
+        ]:
             for rank, lineup in enumerate(lineups, start=1):
                 row = {
                     "mode": mode,
@@ -109,10 +166,17 @@ def _write_lineup_csvs(
                     "expected_score": f"{lineup.expected_score:.2f}",
                     "floor": f"{lineup.floor:.2f}",
                     "ceiling": f"{lineup.ceiling:.2f}",
+                    "p75_score": f"{lineup.p75_score:.2f}",
+                    "p90_score": f"{lineup.p90_score:.2f}",
+                    "p95_score": f"{lineup.p95_score:.2f}",
+                    "top_end_hit_rate": f"{lineup.top_end_hit_rate:.4f}",
                     "volatility": f"{lineup.volatility:.2f}",
                     "best8_expected": f"{lineup.best8_expected:.2f}",
                     "cut_survival_avg": f"{lineup.cut_survival_avg:.3f}",
                     "win_equity_sum": f"{lineup.win_equity_sum:.3f}",
+                    "top10_equity_sum": f"{lineup.top10_equity_sum:.3f}",
+                    "objective_legacy": f"{lineup.objective_legacy:.3f}",
+                    "objective_contest": f"{lineup.objective_contest:.3f}",
                     "lineup_justification": _lineup_english(lineup),
                 }
                 for idx, (name, pid) in enumerate(zip(lineup.player_names, lineup.players), start=1):
@@ -120,7 +184,6 @@ def _write_lineup_csvs(
                     row[f"bucket_{idx}_player_id"] = pid
                 writer.writerow(row)
 
-    # Long CSV: one row per pick with per-player plain-English justification.
     long_cols = [
         "mode",
         "rank",
@@ -130,15 +193,21 @@ def _write_lineup_csvs(
         "p_make_cut",
         "p_top10",
         "p_win",
+        "pick_label",
         "pick_justification",
     ]
     with (out_path / "all_picks_with_justification.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=long_cols)
         writer.writeheader()
-        for mode, lineups in [("ev", ev_lineups), ("diversified", diversified_lineups)]:
+        for mode, lineups in [
+            ("contest", contest_lineups),
+            ("contest_diversified", diversified_lineups),
+            ("legacy_floor", legacy_lineups),
+        ]:
             for rank, lineup in enumerate(lineups, start=1):
                 for pid, name in zip(lineup.players, lineup.player_names):
                     p = projections[pid]
+                    label, justification = _pick_english(p)
                     writer.writerow(
                         {
                             "mode": mode,
@@ -149,27 +218,50 @@ def _write_lineup_csvs(
                             "p_make_cut": f"{p.p_make_cut:.3f}",
                             "p_top10": f"{p.p_top10:.3f}",
                             "p_win": f"{p.p_win:.3f}",
-                            "pick_justification": _pick_english(p),
+                            "pick_label": label,
+                            "pick_justification": justification,
                         }
                     )
 
 
 def _lineup_english(lineup: LineupResult) -> str:
     return (
-        "Chosen for strong best-8 expected scoring while balancing cut safety and upside. "
-        f"Average cut survival is {lineup.cut_survival_avg:.2f}, with volatility {lineup.volatility:.2f} "
-        f"and total win equity {lineup.win_equity_sum:.3f}."
+        "Prioritizes high-end best-8 tournament outcomes with explicit contest tail emphasis. "
+        f"Top-end hit rate {lineup.top_end_hit_rate:.3f}, p95 lineup score {lineup.p95_score:.2f}, "
+        f"win equity {lineup.win_equity_sum:.3f}, and cut survival {lineup.cut_survival_avg:.2f}."
     )
 
 
-def _pick_english(proj: PlayerProjection) -> str:
-    if proj.p_make_cut >= 0.75 and proj.p_top10 >= 0.22:
-        return "Core anchor pick: high cut-making reliability with meaningful top-10 upside."
-    if proj.p_make_cut >= 0.70:
-        return "Safety-driven pick: selected mainly for cut stability and score floor protection."
-    if proj.p_top10 >= 0.20 or proj.p_win >= 0.04:
-        return "Upside pick: lower floor but useful top-end finishing and win-equity leverage."
-    return "Balance pick: complements bucket constraints while adding moderate cut and scoring value."
+def _pick_english(proj: PlayerProjection) -> tuple[str, str]:
+    if proj.p_win >= 0.05:
+        return (
+            "elite win-equity play",
+            "Win probability is strong enough to drive first-place paths, even if variance is elevated.",
+        )
+    if proj.p_top10 >= 0.24:
+        return (
+            "high-ceiling contender",
+            "Top-10 frequency meaningfully raises lineup ceiling and best-8 scoring in top-heavy outcomes.",
+        )
+    if proj.p_make_cut < 0.67 and (proj.p_top10 >= 0.16 or proj.p_win >= 0.028):
+        return (
+            "volatile leverage play",
+            "Lower cut certainty is accepted because contention paths can separate from safer portfolios.",
+        )
+    if proj.p_make_cut >= 0.75 and proj.p_top10 < 0.16:
+        return (
+            "cut-stable but limited ceiling",
+            "Main value is preserving best-8 coverage; slate-winning upside is more limited.",
+        )
+    if proj.p_make_cut >= 0.70 and proj.p_top10 >= 0.16:
+        return (
+            "strong best-8 contributor",
+            "Profile blends cut survival with enough top-end finish equity to matter in ceiling builds.",
+        )
+    return (
+        "portfolio diversification play",
+        "Used to diversify correlated outcomes while preserving a plausible path to best-8 contribution.",
+    )
 
 
 def _build_connector(config: Dict) -> DataConnector:

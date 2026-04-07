@@ -18,7 +18,7 @@ def main() -> None:
     run_cmd.add_argument("--output", default="output")
     run_cmd.add_argument("--lock", default="", help="Comma separated player_ids to lock")
     run_cmd.add_argument("--exclude", default="", help="Comma separated player_ids to exclude")
-    run_cmd.add_argument("--mode", choices=["all", "ev", "diversified"], default="all")
+    run_cmd.add_argument("--mode", choices=["all", "ev", "diversified", "legacy"], default="all")
 
     bt_cmd = sub.add_parser("backtest", help="Run backtesting")
     bt_cmd.add_argument("--config", required=True)
@@ -38,10 +38,13 @@ def main() -> None:
         excludes = [x.strip() for x in args.exclude.split(",") if x.strip()]
         results = run_pipeline(cfg, args.output, locked_players=locks, excluded_players=excludes)
         if args.mode in {"all", "ev"}:
-            print("Top 10 EV lineups")
+            print("Top 10 contest-aware lineups")
             _print_lineups(results["ev"])
+        if args.mode in {"all", "legacy"}:
+            print("\nTop 10 legacy floor-first lineups")
+            _print_lineups(results["legacy"])
         if args.mode in {"all", "diversified"}:
-            print("\nTop 10 diversified lineups")
+            print("\nTop 10 diversified contest-aware lineups")
             _print_lineups(results["diversified"])
     elif args.command == "backtest":
         print(json.dumps(run_backtest(cfg), indent=2))
