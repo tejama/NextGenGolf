@@ -1,70 +1,46 @@
-# NextGenGolf Masters Pool Optimizer
+# NextGenGolf (React)
 
-Production-style Python application for optimizing **Masters pool** entries with the exact format:
+This project has been refactored into a **local React app** focused on transparent bucket-by-bucket ranking.
 
-- 13 buckets (choose 1 golfer per bucket)
-- Best 8 golfers count toward lineup score
-- Missed cuts are heavily penalized
-- Output top 10 lineups in EV and diversified modes
+## What changed
 
-## Quickstart (macOS/Linux)
+- The app now runs in the browser on your laptop with Vite + React.
+- Every bucket ranks players **#1 through #5**.
+- Each ranked player includes plain-English **reasons** that explain the ranking.
+- A built-in "How to use this app" section explains the workflow from bucket selection to lineup building.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
-```
-
-## 2026 Masters pool CSV is now included
-
-I added `data/masters_players_real.csv` from your screenshots (all 13 buckets, including the large Bonus bucket).
-
-### Run it directly
+## Run locally
 
 ```bash
-masters-optimize run --config config/real_data_example.json --output output
+npm install
+npm run dev
 ```
 
-This will print the top 10 EV and top 10 diversified lineups using the real golfer names from that CSV.
+Then open the local URL printed by Vite (normally `http://localhost:5173`).
 
-The run also writes CSV exports:
-- `top10_lineups.csv` (one row per lineup, all 13 picks + plain-English lineup justification)
-- `all_picks_with_justification.csv` (one row per pick with plain-English pick rationale)
-
-## If you want a faster smoke run first
+## Build for production
 
 ```bash
-# uses the same real-name CSV but smaller sim settings
-masters-optimize run --config config/real_data_smoke.json --output output/real_smoke --mode ev
+npm run build
+npm run preview
 ```
 
-## Why you previously saw `Player 1-2`
+## Ranking logic (high-level)
 
-`config/default.json` uses synthetic data on purpose, so names are placeholders. For real names always use `config/real_data_example.json`.
+Players are scored inside each bucket using weighted metrics:
 
-## Files added for real-data workflow
+- Cut rate
+- Top-10 odds
+- SG: Approach
+- Bogey avoidance
+- Double-bogey rate (penalized when high)
+- Masters history
+- Augusta-correlated form
+- Recent finishes
 
-- `data/masters_players_real.csv` → built from your screenshots.
-- `config/real_data_example.json` → full 10,000 simulation run against that CSV.
-- `config/real_data_smoke.json` → quick smoke config for fast local validation.
-- `data/masters_players_template.csv` → template if you want to edit/refresh buckets later.
+The app normalizes these metrics **within each bucket**, computes a weighted score, sorts players, and generates reasons from each player's strongest and weakest drivers.
 
-## Other commands
+## Data source
 
-### Backtest
-
-```bash
-masters-optimize backtest --config config/default.json
-```
-
-### Regression checks (prints progress every 500 by default)
-
-```bash
-masters-optimize regression --config config/default.json
-```
-
-## Notes
-
-- In `zsh`, quote extras install: `python -m pip install -e '.[dev]'`.
-- CLI prints names and IDs together (example: `Scottie Scheffler (B01_P1)`).
+- App runtime CSV: `public/data/masters_players_real.csv`
+- Original source CSV retained: `data/masters_players_real.csv`
