@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "analyze:smoke": "PYTHONPATH=src python -m masters_optimizer.cli run --config config/real_data_smoke.json --output output/redesign_smoke",
+    "analyze:full": "PYTHONPATH=src python -m masters_optimizer.cli run --config config/real_data_example.json --output output/redesign_full",
+    "analyze:regression": "PYTHONPATH=src python -m masters_optimizer.cli regression --config config/real_data_smoke.json | tee output/redesign_smoke/regression_report.json"
   },
   "dependencies": {
     "papaparse": "^5.4.1",
