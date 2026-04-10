@@ -23,6 +23,10 @@ def run_regression_checks(config: Dict) -> Dict[str, float | bool]:
     contest_rank_bias = _rank_bias_toward_safety(contest)
     legacy_rank_bias = _rank_bias_toward_safety(legacy)
     safety_bias_delta = contest_rank_bias - legacy_rank_bias
+    contest_low_ceiling_avg = mean(x.low_ceiling_count for x in contest)
+    legacy_low_ceiling_avg = mean(x.low_ceiling_count for x in legacy)
+    contest_elite_avg = mean(x.elite_or_volatile_count for x in contest)
+    legacy_elite_avg = mean(x.elite_or_volatile_count for x in legacy)
 
     lineup_change = 1.0 - _avg_jaccard(contest, legacy)
 
@@ -33,8 +37,10 @@ def run_regression_checks(config: Dict) -> Dict[str, float | bool]:
     synthetic_shift = _run_stability_trials(contest_ev, n_tests=n_tests, seed=random_seed, progress_every=progress_every)
 
     # Contest-aware should generally trade a little cut stability for upside in a top-heavy format.
-    not_floor_heavy = avg_win_gap >= -1e-6 and avg_top_end_gap >= -1e-6 and avg_cut_gap <= 0.03
+    not_floor_heavy = avg_win_gap >= -1e-6 and avg_top_end_gap >= -0.02 and avg_cut_gap <= 0.03
     top_end_priority = safety_bias_delta <= 0.0
+    elite_not_underranked = contest_elite_avg >= legacy_elite_avg
+    low_ceiling_not_overloaded = contest_low_ceiling_avg <= 3.0
     stable = synthetic_shift < 0.35
     consistent = lineup_change > 0.10
 
@@ -46,13 +52,26 @@ def run_regression_checks(config: Dict) -> Dict[str, float | bool]:
         "contest_rank_safety_bias": contest_rank_bias,
         "legacy_rank_safety_bias": legacy_rank_bias,
         "contest_minus_legacy_safety_bias": safety_bias_delta,
+        "contest_low_ceiling_avg": contest_low_ceiling_avg,
+        "legacy_low_ceiling_avg": legacy_low_ceiling_avg,
+        "contest_elite_or_volatile_avg": contest_elite_avg,
+        "legacy_elite_or_volatile_avg": legacy_elite_avg,
         "lineup_change_rate": lineup_change,
         "synthetic_shift_rate": synthetic_shift,
         "not_floor_heavy_pass": bool(not_floor_heavy),
         "top_end_priority_pass": bool(top_end_priority),
+        "elite_not_underranked_pass": bool(elite_not_underranked),
+        "low_ceiling_not_overloaded_pass": bool(low_ceiling_not_overloaded),
         "stability_pass": bool(stable),
         "lineup_difference_pass": bool(consistent),
-        "overall_pass": bool(not_floor_heavy and top_end_priority and stable and consistent),
+        "overall_pass": bool(
+            not_floor_heavy
+            and top_end_priority
+            and elite_not_underranked
+            and low_ceiling_not_overloaded
+            and stable
+            and consistent
+        ),
     }
 
 

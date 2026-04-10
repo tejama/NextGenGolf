@@ -43,6 +43,14 @@ def build_features(players: List[PlayerRecord], weights: Dict[str, float]) -> Li
         vol = pstdev(recent) / 20.0 + max(0.0, z["double_bogey_rate"])
         cut = _clip(0.52 + 0.28 * z["cut_rate"] - 0.12 * z["double_bogey_rate"], 0.03, 0.995)
         contention = _clip(0.55 * z["odds_top10"] + 0.35 * z["odds_top5"] + 0.1 * z["odds_win"], 0.01, 0.85)
+        birdie_upside = (
+            -z["par5_scoring"] * 0.45
+            + z["driving_distance"] * 0.18
+            + z["sg_approach"] * 0.22
+            - z["double_bogey_rate"] * 0.10
+            + z["field_adjusted_finish"] * 0.15
+        )
+        approach_plus_form = z["sg_approach"] * 0.72 + weighted_form / 55.0
         rows.append(
             PlayerFeatures(
                 player_id=p.player_id,
@@ -54,6 +62,8 @@ def build_features(players: List[PlayerRecord], weights: Dict[str, float]) -> Li
                 volatility=vol * weights.get("volatility", 1.0),
                 cut_survival=cut,
                 contention_prob=contention,
+                birdie_upside=birdie_upside,
+                approach_plus_form=approach_plus_form,
             )
         )
     return rows
