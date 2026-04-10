@@ -165,7 +165,14 @@ def _score_lineup(lineup: Sequence[str], artifacts: PipelineArtifacts) -> Lineup
 
     cut_survival = [1.0 - artifacts.missed_cut_rates[pid] for pid in lineup]
     win_equity = sum(artifacts.projections[pid].win_equity for pid in lineup)
+    top5_equity = sum(artifacts.projections[pid].p_top5 for pid in lineup)
     top10_equity = sum(artifacts.projections[pid].p_top10 for pid in lineup)
+    low_ceiling_count = sum(1 for pid in lineup if artifacts.projections[pid].archetype == "low_ceiling_safety")
+    elite_or_volatile_count = sum(
+        1
+        for pid in lineup
+        if artifacts.projections[pid].archetype in {"elite_contender", "high_ceiling_volatile"}
+    )
 
     exp = mean(lineup_scores)
     floor = _percentile(lineup_scores, 85)
@@ -176,8 +183,8 @@ def _score_lineup(lineup: Sequence[str], artifacts: PipelineArtifacts) -> Lineup
     vol = pstdev(lineup_scores)
 
     rationale = (
-        f"Cut profile ({mean(cut_survival):.2f}), top-10 equity {top10_equity:.3f}, "
-        f"win equity {win_equity:.3f}, volatility {vol:.2f}."
+        f"Cut profile ({mean(cut_survival):.2f}), top-5 equity {top5_equity:.3f}, top-10 equity {top10_equity:.3f}, "
+        f"win equity {win_equity:.3f}, volatility {vol:.2f}, low-ceiling count {low_ceiling_count}."
     )
 
     return LineupResult(
@@ -190,11 +197,14 @@ def _score_lineup(lineup: Sequence[str], artifacts: PipelineArtifacts) -> Lineup
         best8_expected=best8_expected,
         cut_survival_avg=mean(cut_survival),
         win_equity_sum=win_equity,
+        top5_equity_sum=top5_equity,
         top10_equity_sum=top10_equity,
         p75_score=tail75,
         p90_score=tail90,
         p95_score=tail95,
         simulation_scores=lineup_scores,
+        low_ceiling_count=low_ceiling_count,
+        elite_or_volatile_count=elite_or_volatile_count,
         rationale=rationale,
     )
 
@@ -226,15 +236,18 @@ def _apply_objectives(lineup: LineupResult) -> None:
         - lineup.win_equity_sum * 4.0
     )
     lineup.objective_contest = (
-        lineup.expected_score * 0.35
-        + lineup.p75_score * 0.20
-        + lineup.p90_score * 0.25
-        + lineup.p95_score * 0.20
-        - lineup.win_equity_sum * 14.0
-        - lineup.top10_equity_sum * 4.0
-        - lineup.top_end_hit_rate * 45.0
-        + (1.0 - lineup.cut_survival_avg) * 5.0
-        + lineup.volatility * 0.08
+        lineup.expected_score * 0.20
+        + lineup.p75_score * 0.25
+        + lineup.p90_score * 0.30
+        + lineup.p95_score * 0.25
+        - lineup.win_equity_sum * 22.0
+        - lineup.top5_equity_sum * 10.0
+        - lineup.top10_equity_sum * 4.5
+        - lineup.top_end_hit_rate * 58.0
+        + (1.0 - lineup.cut_survival_avg) * 3.0
+        + lineup.volatility * 0.03
+        + max(0, lineup.low_ceiling_count - 3) * 2.4
+        + max(0, 2 - lineup.elite_or_volatile_count) * 4.0
     )
 
 

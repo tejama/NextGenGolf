@@ -18,6 +18,37 @@ npm run dev
 
 Then open the local URL printed by Vite (normally `http://localhost:5173`).
 
+> ⚠️ The React site is a bucket-ranking UI and does **not** automatically run the Python lineup simulation.
+> If you only run `npm run dev`, you will not see new optimized lineups from the re-analysis engine.
+
+## Run the re-analysis optimizer (Python)
+
+You can run the optimizer separately and inspect generated lineup outputs:
+
+```bash
+# Fast smoke run (real players, lower sim count)
+npm run analyze:smoke
+
+# Heavier run (real players, 10k sims)
+npm run analyze:full
+
+# Regression integrity checks
+npm run analyze:regression
+```
+
+Generated files are written under:
+
+- `output/redesign_smoke/` for smoke runs
+- `output/redesign_full/` for full runs
+
+The most useful artifacts are:
+
+- `top10_contest_aware.json` (ceiling-first top-10 lineups)
+- `top10_legacy_floor.json` (old floor-first comparison)
+- `top10_lineups.csv` (all lineup modes in one table)
+- `all_picks_with_justification.csv` (pick-level rationale + archetypes)
+- `regression_report.json` (regression checks output)
+
 ## Build for production
 
 ```bash

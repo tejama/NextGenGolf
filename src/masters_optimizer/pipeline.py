@@ -143,7 +143,10 @@ def _write_lineup_csvs(
         "best8_expected",
         "cut_survival_avg",
         "win_equity_sum",
+        "top5_equity_sum",
         "top10_equity_sum",
+        "low_ceiling_count",
+        "elite_or_volatile_count",
         "objective_legacy",
         "objective_contest",
         "lineup_justification",
@@ -174,7 +177,10 @@ def _write_lineup_csvs(
                     "best8_expected": f"{lineup.best8_expected:.2f}",
                     "cut_survival_avg": f"{lineup.cut_survival_avg:.3f}",
                     "win_equity_sum": f"{lineup.win_equity_sum:.3f}",
+                    "top5_equity_sum": f"{lineup.top5_equity_sum:.3f}",
                     "top10_equity_sum": f"{lineup.top10_equity_sum:.3f}",
+                    "low_ceiling_count": lineup.low_ceiling_count,
+                    "elite_or_volatile_count": lineup.elite_or_volatile_count,
                     "objective_legacy": f"{lineup.objective_legacy:.3f}",
                     "objective_contest": f"{lineup.objective_contest:.3f}",
                     "lineup_justification": _lineup_english(lineup),
@@ -192,7 +198,10 @@ def _write_lineup_csvs(
         "player_id",
         "p_make_cut",
         "p_top10",
+        "p_top5",
         "p_win",
+        "birdie_burst",
+        "archetype",
         "pick_label",
         "pick_justification",
     ]
@@ -217,7 +226,10 @@ def _write_lineup_csvs(
                             "player_id": pid,
                             "p_make_cut": f"{p.p_make_cut:.3f}",
                             "p_top10": f"{p.p_top10:.3f}",
+                            "p_top5": f"{p.p_top5:.3f}",
                             "p_win": f"{p.p_win:.3f}",
+                            "birdie_burst": f"{p.birdie_burst:.3f}",
+                            "archetype": p.archetype,
                             "pick_label": label,
                             "pick_justification": justification,
                         }
@@ -228,32 +240,27 @@ def _lineup_english(lineup: LineupResult) -> str:
     return (
         "Prioritizes high-end best-8 tournament outcomes with explicit contest tail emphasis. "
         f"Top-end hit rate {lineup.top_end_hit_rate:.3f}, p95 lineup score {lineup.p95_score:.2f}, "
-        f"win equity {lineup.win_equity_sum:.3f}, and cut survival {lineup.cut_survival_avg:.2f}."
+        f"win equity {lineup.win_equity_sum:.3f}, top-5 equity {lineup.top5_equity_sum:.3f}, and cut survival {lineup.cut_survival_avg:.2f}."
     )
 
 
 def _pick_english(proj: PlayerProjection) -> tuple[str, str]:
-    if proj.p_win >= 0.05:
+    if proj.archetype == "elite_contender":
         return (
             "elite win-equity play",
             "Win probability is strong enough to drive first-place paths, even if variance is elevated.",
         )
-    if proj.p_top10 >= 0.24:
+    if proj.archetype == "high_ceiling_volatile":
         return (
             "high-ceiling contender",
             "Top-10 frequency meaningfully raises lineup ceiling and best-8 scoring in top-heavy outcomes.",
         )
-    if proj.p_make_cut < 0.67 and (proj.p_top10 >= 0.16 or proj.p_win >= 0.028):
-        return (
-            "volatile leverage play",
-            "Lower cut certainty is accepted because contention paths can separate from safer portfolios.",
-        )
-    if proj.p_make_cut >= 0.75 and proj.p_top10 < 0.16:
+    if proj.archetype == "low_ceiling_safety":
         return (
             "cut-stable but limited ceiling",
             "Main value is preserving best-8 coverage; slate-winning upside is more limited.",
         )
-    if proj.p_make_cut >= 0.70 and proj.p_top10 >= 0.16:
+    if proj.archetype == "balanced_contributor":
         return (
             "strong best-8 contributor",
             "Profile blends cut survival with enough top-end finish equity to matter in ceiling builds.",
