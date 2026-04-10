@@ -26,6 +26,8 @@ def test_regression_runs():
     out = run_regression_checks(_cfg())
     assert "overall_pass" in out
     assert "not_floor_heavy_pass" in out
+    assert "elite_not_underranked_pass" in out
+    assert "low_ceiling_not_overloaded_pass" in out
     assert isinstance(out["contest_vs_legacy_win_equity_gap"], float)
 
 
@@ -43,3 +45,5 @@ def test_contest_objective_prioritizes_ceiling(tmp_path):
     assert len(legacy) == 10
     assert [x.players for x in contest] != [x.players for x in legacy]
     assert sum(x.objective_contest for x in contest) / 10 <= sum(x.objective_contest for x in legacy) / 10
+    assert sum(x.top5_equity_sum for x in contest) / 10 >= sum(x.top5_equity_sum for x in legacy) / 10
+    assert sum(x.low_ceiling_count for x in contest) / 10 <= 3.2

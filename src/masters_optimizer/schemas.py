@@ -42,6 +42,8 @@ class PlayerFeatures:
     volatility: float
     cut_survival: float
     contention_prob: float
+    birdie_upside: float
+    approach_plus_form: float
 
 
 @dataclass(frozen=True)
@@ -53,9 +55,12 @@ class PlayerProjection:
     round_std: float
     p_make_cut: float
     p_top20: float
+    p_top5: float
     p_top10: float
     p_win: float
     win_equity: float
+    birdie_burst: float
+    archetype: str
 
 
 @dataclass
@@ -69,6 +74,7 @@ class LineupResult:
     best8_expected: float
     cut_survival_avg: float
     win_equity_sum: float
+    top5_equity_sum: float = 0.0
     top10_equity_sum: float = 0.0
     p75_score: float = 0.0
     p90_score: float = 0.0
@@ -80,6 +86,8 @@ class LineupResult:
     objective_mode: str = ""
     simulation_scores: List[float] | None = None
     overlap_pct: float = 0.0
+    low_ceiling_count: int = 0
+    elite_or_volatile_count: int = 0
     rationale: str = ""
 
 
